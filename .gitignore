@@ -1,0 +1,10 @@
+.env.local
+.venv/
+__pycache__/
+.sessions/
+.DS_Store
+.claude/settings.local.json
+# Study material and the exam guide stay out of the repo
+Claude Certified Architech Guide.pdf
+certification/
+.env
