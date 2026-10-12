@@ -36,10 +36,10 @@ Policies: `payment_dispute` (v3.2), `fraud_suspicion` (v2.1), `account_security`
 | E2 | Malformed input | ID `12345` | `validation`, not retryable, 1 attempt, no retries wasted | ✅ | |
 | E3 | Nobody verified | no session | `permission`, account never read | ✅ | |
 | E4 | Wrong customer in briefing | verified 1001, asks 1003 | `permission`; no data from 1003 leaks | ✅ | ⏳ P2 |
-| E5 | Account service down | `FAULT_INJECT=account:timeout` | 3 attempts, backoff 0.2s then 0.4s, `transient` + retryable; policy still arrives; answer states the gap | ✅ | ⏳ P3/P5 |
-| E6 | Brief blip | `account:blip` | Retry absorbs it: success with `recovered_after: 1`; coordinator never sees an error | ✅ | ⏳ P3 |
+| E5 | Account service down | `FAULT_INJECT=account:timeout` | 3 attempts, backoff 0.2s then 0.4s, `transient` + retryable; decision `rebrief` (once), then `write_with_gaps`; policy still arrives; answer states the gap | ✅ | ✅ P3 (re-briefed once, gap stated, [G1] cited) · ⏳ P5 writer |
+| E6 | Brief blip | `account:blip` | Retry absorbs it: success with `recovered_after: 1`; coordinator never sees an error | ✅ (+ ledger) | ⏳ P5 |
 | E7 | Policy service down | `policy:timeout` | Account facts still given; answer says the policy could not be reached | ✅ | ⏳ P5 |
-| E8 | Both down | `account:timeout,policy:timeout` | Plain stop message; `report_writer` is blocked by a hook | ✅ tools | ⏳ P3 gate |
+| E8 | Both down | `account:timeout,policy:timeout` | Decision `rebrief` both in ONE reply, then `stop`; plain message; `report_writer` blocked by the gate hook | ✅ tools + gate | ✅ P3 (4 reports, stop, no writer) |
 
 ## R: Routing (hub-and-spoke)
 | ID | Scenario | Expected | When |
@@ -53,7 +53,7 @@ Policies: `payment_dispute` (v3.2), `fraud_suspicion` (v2.1), `account_security`
 | ID | Scenario | Expected | When |
 |---|---|---|---|
 | G1 | Every record has source fields | record_id, last_updated, retrieved_at; policies also URL, version, name | ✅ |
-| G2 | Ledger assigns `grounding_id`; success with no grounding becomes `partial` | ⏳ P3 |
+| G2 | Ledger assigns `grounding_id`; ungrounded data is left out (failed or partial + coverage note) | ✅ P3 (`tests/test_ledger.py`) |
 | G3 | Every claim in the answer maps to a `grounding_id`; URLs quoted from it | ⏳ P4/P5 |
 
 ## M: Multi-inquiry and session state
@@ -61,7 +61,7 @@ Policies: `payment_dispute` (v3.2), `fraud_suspicion` (v2.1), `account_security`
 |---|---|---|---|
 | M1 | Verify once | Verification stored with a time, outside every prompt | ✅ |
 | M2 | Follow-up question | A new server process in the same session is still verified; inquiries are logged | ✅ |
-| M3 | Follow-up reuses reports | Second question ("How do I appeal?") is answered from stored reports or a fresh lookup, same verified customer | ⏳ P3/P5 |
+| M3 | Follow-up reuses reports | Reports and decision saved to the session after each inquiry ✅ P3. Second question answered with the same verified customer | ⏳ P5 live |
 
 ## C: Complex question
 | ID | Scenario | Expected | When |
@@ -70,11 +70,13 @@ Policies: `payment_dispute` (v3.2), `fraud_suspicion` (v2.1), `account_security`
 
 ## Live runs so far
 - 10-11-2026, Phase 2 (research summary only, no writer yet): S1 ✅, S3 ✅ (mismatch and missing fraud policy named), E5 ✅ (structured transient error, 3 attempts, policy still arrived, gap stated). About $0.02 each.
+- 10-11-2026, Phase 3 (ledger + decision table + gate): E5 ✅ (rebrief once, then write_with_gaps, [G1] cited), E8 ✅ (rebrief both in one reply, then stop, no writer). $0.03 each.
 
 ## How to run
 ```
 .venv/bin/python tests/test_tools.py        # data layer, errors, retry, grounding, session
 .venv/bin/python tests/test_mcp_server.py   # same rules through the real MCP server, across processes
 .venv/bin/python tests/test_hooks.py        # scope hook, parallel-start check
+.venv/bin/python tests/test_ledger.py       # reports, grounding IDs, coverage notes, decision table, gate
 .venv/bin/python main.py --customer CUST-1001 --reason payment_dispute "Why was my account flagged?"   # live, costs credit
 ```

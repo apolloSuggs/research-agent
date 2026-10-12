@@ -27,6 +27,16 @@ def show(events):
             print(f"   [{e['agent']} {'ERROR' if e['is_error'] else 'result'}] {e['content'][:220]}")
         elif t == "text":
             print(f"\n[{e['agent']}] {e['text']}")
+        elif t == "report":
+            r = e["report"]
+            ids = [f["grounding_id"] for f in r["findings"] + r["partial_data"]]
+            err = f" error={r['error']['error_type']} retryable={r['error']['retryable']} attempts={r['error']['attempts']}" if r["error"] else ""
+            print(f"\n[report {r['report_id']}] {r['agent']}: {r['status']} grounding={ids}{err}")
+            if r["coverage_note"]:
+                print(f"    coverage: {r['coverage_note']}")
+        elif t == "decision":
+            d = e["decision"]
+            print(f"[decision] {d['action']}  rebrief={d['rebrief']}")
         elif t == "done":
             print(f"\n--- done: {e['turns']} turns, ${e['cost_usd'] or 0:.4f}, denials: {len(e['denials'] or [])}")
     print(f"--- parallel start: {'YES' if parallel_start(events) else 'NO'}")
