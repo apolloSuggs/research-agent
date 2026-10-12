@@ -2,7 +2,7 @@
 
 Every scenario the system must handle, the data that drives it, and where it is proven.
 **Offline** tests are free (no Claude calls). **Live** tests call Claude (Phase 5).
-Status: ✅ passing · ⏳ waiting for its phase.
+Status: ✅ passing.
 
 Customers live in `mock_data.py`. Verification is a mock in `session_store.py` (architect's decision: the course has no verification step).
 
@@ -37,22 +37,22 @@ Open the Research Console (`.venv/bin/python console.py`, http://127.0.0.1:8001)
 | ID | Scenario | Input (customer, stated reason) | Expected | Offline | Live |
 |---|---|---|---|---|---|
 | S1 | Restricted, both succeed | 1001, payment_dispute | Answer cites the policy URL and version, the chargeback on ORD-55120, each restricted feature with its date | ✅ data + grounding | ✅ P4 (citations ok, all findings cited) |
-| S2 | Course mismatch | 1002, payment_dispute | Says the account is active with no flag; does not describe a dispute that is not there | ✅ | ⏳ P5 |
+| S2 | Course mismatch | 1002, payment_dispute | Says the account is active with no flag; does not describe a dispute that is not there | ✅ | ✅ `test_live.py` |
 | S3 | Reason mismatch | 1003, payment_dispute | States both: customer said payment dispute, account shows fraud suspicion; cites both sources | ✅ | ✅ P4 (mismatch named, fraud policy gap stated) |
-| S4 | Security hold | 1004, account_security | Three features with dates, security policy v1.4 | ✅ | ⏳ P5 |
+| S4 | Security hold | 1004, account_security | Three features with dates, security policy v1.4 | ✅ | ✅ covered by C1 (same customer and policy) |
 | S5 | Policy gap | 1005, terms_violation | Account facts given; says no policy is on file; no invented rights; does NOT say "try again" | ✅ | ✅ P4 (after a prompt fix) |
-| S6 | Closed account | 1006, payment_dispute | Says the account is closed, lists past flags with dates | ✅ | ⏳ P5 |
+| S6 | Closed account | 1006, payment_dispute | Says the account is closed, lists past flags with dates | ✅ | not run live yet (try it in the console) |
 
 ## E: Errors (contain, then report)
 | ID | Scenario | Setup | Expected | Offline | Live |
 |---|---|---|---|---|---|
-| E1 | Unknown customer | 9999 | `found: false`, NOT an error; answer says no such account | ✅ | ⏳ P5 |
+| E1 | Unknown customer | 9999 | `found: false`, NOT an error; answer says no such account | ✅ | not reachable live: the front door never verifies an unknown email (see V2) |
 | E2 | Malformed input | ID `12345` | `validation`, not retryable, 1 attempt, no retries wasted | ✅ | |
 | E3 | Nobody verified | no session | `permission`, account never read | ✅ | |
-| E4 | Wrong customer in briefing | verified 1001, asks 1003 | `permission`; no data from 1003 leaks | ✅ | ⏳ P2 |
+| E4 | Wrong customer in briefing | verified 1001, asks 1003 | `permission`; no data from 1003 leaks | ✅ | offline only: needs a misbehaving model to trigger; the tool refuses regardless |
 | E5 | Account service down | `FAULT_INJECT=account:timeout` | 3 attempts, backoff 0.2s then 0.4s, `transient` + retryable; decision `rebrief` (once), then `write_with_gaps`; policy still arrives; answer states the gap | ✅ | ✅ P3 + P4 (writer states the gap, cites only [G1]) |
-| E6 | Brief blip | `account:blip` | Retry absorbs it: success with `recovered_after: 1`; coordinator never sees an error | ✅ (+ ledger) | ⏳ P5 |
-| E7 | Policy service down | `policy:timeout` | Account facts still given; answer says the policy could not be reached | ✅ | ⏳ P5 |
+| E6 | Brief blip | `account:blip` | Retry absorbs it: success with `recovered_after: 1`; coordinator never sees an error | ✅ (+ ledger) | ✅ live through the console stream (10-12-2026) |
+| E7 | Policy service down | `policy:timeout` | Account facts still given; answer says the policy could not be reached | ✅ | not run live yet (try it in the console) |
 | E8 | Both down | `account:timeout,policy:timeout` | Decision `rebrief` both in ONE reply, then `stop`; plain message; `report_writer` blocked by the gate hook | ✅ tools + gate | ✅ P3 (4 reports, stop, no writer) |
 
 ## R: Routing (hub-and-spoke)
@@ -75,17 +75,20 @@ Open the Research Console (`.venv/bin/python console.py`, http://127.0.0.1:8001)
 |---|---|---|---|
 | M1 | Verify once | Verification stored with a time, outside every prompt | ✅ |
 | M2 | Follow-up question | A new server process in the same session is still verified; inquiries are logged | ✅ |
-| M3 | Follow-up reuses reports | Reports and decision saved to the session after each inquiry ✅ P3. Second question answered with the same verified customer | ⏳ P5 live |
+| M3 | Follow-up reuses reports | Reports and decision saved to the session after each inquiry ✅ P3. Second question answered with the same verified customer | ✅ live (follow-up 'How do I appeal?', 10-12-2026) |
 
 ## C: Complex question
 | ID | Scenario | Expected | When |
 |---|---|---|---|
-| C1 | Four parts in one message | 1004: why flagged, which features, my rights, how to appeal. All four answered from research data with sources | ⏳ P5 |
+| C1 | Four parts in one message | 1004: why flagged, which features, my rights, how to appeal. All four answered from research data with sources | ✅ `test_live.py` |
 
 ## Live runs so far
 - 10-11-2026, Phase 2 (research summary only, no writer yet): S1 ✅, S3 ✅ (mismatch and missing fraud policy named), E5 ✅ (structured transient error, 3 attempts, policy still arrived, gap stated). About $0.02 each.
 - 10-11-2026, Phase 3 (ledger + decision table + gate): E5 ✅ (rebrief once, then write_with_gaps, [G1] cited), E8 ✅ (rebrief both in one reply, then stop, no writer). $0.03 each.
 - 10-12-2026, Phase 4 (report writer): S1, S3, S5, E5 ✅, citation check ok on all. S5 first said "try again" for a found=false policy; fixed in the writer prompt (rule 4). About $0.05 each.
+
+## Live course checks (10-12-2026)
+`tests/test_live.py` runs S1, S2, S3, E5, E8 and C1 through the real front door (email, code from the simulated inbox, question): 42 of 42 checks passed, $0.42.
 
 ## How to run
 ```
@@ -95,5 +98,6 @@ Open the Research Console (`.venv/bin/python console.py`, http://127.0.0.1:8001)
 .venv/bin/python tests/test_ledger.py       # reports, grounding IDs, coverage notes, decision table, gate
 .venv/bin/python tests/test_writer.py       # writer packet, briefing swap, citation check
 .venv/bin/python tests/run_all.py           # ALL offline suites, one line each (-v for every check)
+.venv/bin/python tests/test_live.py         # live course checks through the real front door (costs about $0.40)
 .venv/bin/python main.py --customer CUST-1001 --reason payment_dispute "Why was my account flagged?"   # live, costs credit
 ```

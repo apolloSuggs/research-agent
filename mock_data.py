@@ -39,7 +39,7 @@ ACCOUNTS = {
         "previous_flags": [],
         "last_updated": "07-02-2026",
     },
-    # S3 reason mismatch (reflection question 3): customer says payment dispute, account says fraud suspicion.
+    # S3 reason mismatch: customer says payment dispute, account says fraud suspicion.
     "CUST-1003": {
         "record_id": "ACC-1003",
         "name": "Priya Raman",

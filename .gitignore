@@ -8,3 +8,9 @@ __pycache__/
 Claude Certified Architech Guide.pdf
 certification/
 .env
+# Course and study working files stay local (never published)
+PLAN.md
+COURSE-BRIEF.md
+CLAUDE.md
+.claude/skills/new-lesson/
+.playwright-mcp/
