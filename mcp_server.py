@@ -1,16 +1,17 @@
-"""mcp_server.py: the two data tools behind one MCP server (exam tasks 2.1, 2.2, 2.4).
+"""mcp_server.py: the front-door and data tools behind one MCP server (exam tasks 2.1, 2.2, 2.4).
 
 MCP (Model Context Protocol) is a standard way to offer tools to an agent from a separate program.
 The Agent SDK starts this file as a child process and talks to it over stdio (its standard input and
 output). That channel carries the protocol messages, so nothing else may print to stdout.
 
 The rules live HERE, in code, so they hold for any client (our coordinator, Claude Code, the Inspector):
+  - verification codes are made and checked here; the code never appears in a result,
   - the account tool only serves the customer verified in the session (session_store),
   - transient errors are retried, everything else is reported at once (errors.py),
   - every result carries grounding metadata, every failure is a structured error (tools.py).
 
 Environment (set by the client):
-  SESSION_ID        which stored session to read. Without it, nothing is verified, so account reads are denied.
+  SESSION_ID        which stored session to read and write. Without it, state lives only in this process.
   FAULT_INJECT      testing only, e.g. "account:timeout" or "account:blip,policy:timeout".
   RETRY_BASE_DELAY  seconds before the first retry (default 0.2; doubles each time).
 
@@ -26,11 +27,12 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 
 import session_store
-from tools import TOOLS, parse_faults, run_tool
+from tools import SESSION_WRITING_TOOLS, TOOLS, parse_faults, run_tool
 
 SESSION_ID = os.environ.get("SESSION_ID")
 FAULTS = parse_faults(os.environ.get("FAULT_INJECT"))
 RETRY = {"base_delay": float(os.environ.get("RETRY_BASE_DELAY", "0.2"))}
+LOCAL_SESSION = session_store.new_session("local")   # no SESSION_ID: state lives only in this process
 
 
 async def list_tools(context, params):
@@ -41,8 +43,10 @@ async def list_tools(context, params):
 
 async def handle_call(context, params):
     # Load the session fresh on every call: another process may have verified the customer since.
-    session = session_store.load(SESSION_ID) if SESSION_ID else None
+    session = session_store.load(SESSION_ID) if SESSION_ID else LOCAL_SESSION
     result, is_error = run_tool(params.name, params.arguments or {}, session, FAULTS, RETRY)
+    if SESSION_ID and params.name in SESSION_WRITING_TOOLS:
+        session_store.save(session)   # a code was sent or the customer was verified: persist it for every process
     return types.CallToolResult(content=[types.TextContent(type="text", text=json.dumps(result))], is_error=is_error)
 
 

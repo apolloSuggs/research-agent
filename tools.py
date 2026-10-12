@@ -1,4 +1,7 @@
-"""tools.py: the two data tools (exam tasks 2.1, 2.2) and the code that runs them.
+"""tools.py: the front-door tools (verification) and the two data tools (exam tasks 2.1, 2.2), and the code that runs them.
+
+Front door (coordinator only): send_verification_code, verify_identity. The code lives in the session.
+Data (specialists only): get_account_details (verified customer only), get_policies.
 
 Kept separate from mcp_server.py so the logic can be tested directly, with no server and no Claude.
 Every call goes through run_tool(), which:
@@ -14,6 +17,7 @@ Fault injection (testing only): faults={"account": "timeout" | "blip", "policy":
 """
 
 import re
+import secrets   # not random: secrets is safe for security codes
 from datetime import datetime, timezone
 
 from errors import ToolError, error_result, with_retry
@@ -64,7 +68,44 @@ get_policies = {
     },
 }
 
-TOOLS = [get_account_details, get_policies]
+send_verification_code = {
+    "name": "send_verification_code",
+    "description": (
+        "Sends a one-time 6-digit code to the email address on a customer's account, to start proving who they are. "
+        "Use when the customer wants help with their own account and has given their email, before any account research. "
+        "Do not use this to check a code the customer typed; use verify_identity for that. "
+        "Returns only that a code was sent if an account matches. It never shows the code and does not reveal whether the account exists."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "email": {"type": "string", "description": "The email address the customer gave, e.g. 'maya.patel@example.com'."}
+        },
+        "required": ["email"],
+    },
+}
+
+verify_identity = {
+    "name": "verify_identity",
+    "description": (
+        "Checks the 6-digit code the customer typed against the code sent to their email, and marks the session verified. "
+        "Use when the customer gives you the code from their email. "
+        "Do not use this to send a code; use send_verification_code for that. Never guess or invent a code. "
+        "Returns verified: true with the customer ID and name, or an error. After 3 wrong codes verification locks."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "email": {"type": "string", "description": "The same email address the code was sent to, e.g. 'maya.patel@example.com'."},
+            "code": {"type": "string", "description": "The 6-digit code exactly as the customer typed it, e.g. '048213'."},
+        },
+        "required": ["email", "code"],
+    },
+}
+
+TOOLS = [send_verification_code, verify_identity, get_account_details, get_policies]
+SESSION_WRITING_TOOLS = {"send_verification_code", "verify_identity"}   # the MCP server saves the session after these
+MAX_CODE_ATTEMPTS = 3
 
 CUSTOMER_ID = re.compile(r"^CUST-\d{4}$")
 FLAG_TYPE = re.compile(r"^[a-z][a-z_]*$")
@@ -100,7 +141,7 @@ def _account(args, session, faults, retry):
     if record is None:
         return {"found": False, "message": f"No account exists with ID {customer_id}.",
                 "source": {**source, "record_id": None, "searched": "accounts"}}, attempts
-    body = {k: v for k, v in record.items() if k not in ("record_id", "last_updated")}
+    body = {k: v for k, v in record.items() if k not in ("record_id", "last_updated", "email")}   # only what research needs
     return {"found": True, "account": {"customer_id": customer_id, **body},
             "source": {**source, "record_id": record["record_id"], "last_updated": record["last_updated"]}}, attempts
 
@@ -124,7 +165,52 @@ def _policy(args, session, faults, retry):
             "source": {**source, **{k: policy[k] for k in grounding}, "policy_name": policy["name"]}}, attempts
 
 
-HANDLERS = {"get_account_details": _account, "get_policies": _policy}
+def _find_by_email(email):
+    for customer_id, record in ACCOUNTS.items():
+        if record.get("email", "").lower() == email.lower():
+            return customer_id, record
+    return None, None
+
+
+def _send_code(args, session, faults, retry):
+    email = str(args.get("email", "")).strip()
+    if "@" not in email:
+        raise ToolError("validation", f"'{email}' is not an email address. Ask the customer for the email on their account.")
+    customer_id, record = _find_by_email(email)
+    if customer_id:
+        # The code is made and kept by CODE, in the session. It is never in the result, so Claude
+        # cannot read it and cannot "verify" someone who does not have it.
+        code = f"{secrets.randbelow(1_000_000):06d}"
+        session["pending_verification"] = {"customer_id": customer_id, "email": record["email"], "code": code, "attempts": 0}
+        session["outbox"].append({"to": record["email"], "text": f"Your verification code is {code}", "sent_at": _now()})
+    # Same reply whether or not an account matched, so this tool cannot be used to find out who has an account.
+    return {"sent": True, "message": "If an account matches that email, a 6-digit code was sent to it. Ask the customer for the code."}, 1
+
+
+def _verify(args, session, faults, retry):
+    email = str(args.get("email", "")).strip()
+    code = str(args.get("code", "")).strip()
+    pending = session.get("pending_verification")
+    if not pending:
+        raise ToolError("validation", "No code is waiting. Ask for the customer's email and use send_verification_code first.")
+    if email.lower() != pending["email"].lower():
+        raise ToolError("validation", "That is not the email the code was sent to. Ask the customer to confirm their email.")
+    if pending["attempts"] >= MAX_CODE_ATTEMPTS:
+        raise ToolError("business", "Verification is locked after too many wrong codes. Do not try again; tell the customer to contact support.")
+    if code != pending["code"]:
+        pending["attempts"] += 1
+        left = MAX_CODE_ATTEMPTS - pending["attempts"]
+        if left == 0:
+            raise ToolError("business", "That code is wrong and verification is now locked. Do not try again; tell the customer to contact support.")
+        raise ToolError("validation", f"That code is not correct. {left} attempt(s) left. Ask the customer to check the email again.")
+    # Success: CODE records who is verified. Every later account lookup is checked against this.
+    session.update(verified_customer_id=pending["customer_id"], verified_at=_now(),
+                   verification_method="email_code", pending_verification=None)
+    return {"verified": True, "customer_id": pending["customer_id"], "name": ACCOUNTS[pending["customer_id"]]["name"]}, 1
+
+
+HANDLERS = {"send_verification_code": _send_code, "verify_identity": _verify,
+            "get_account_details": _account, "get_policies": _policy}
 
 
 def run_tool(name, args, session=None, faults=None, retry=None):

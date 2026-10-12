@@ -23,6 +23,8 @@ def new_session(session_id):
         "verified_customer_id": None,
         "verified_at": None,
         "verification_method": None,
+        "pending_verification": None,   # {customer_id, email, code, attempts}: the code lives HERE, never in a result
+        "outbox": [],      # simulated emails "sent" to the customer (the console shows them as an inbox)
         "inquiries": [],   # one entry per question asked in this session (multi-inquiry)
         "reports": [],     # structured reports, filled by the ledger in Phase 3
     }
@@ -50,9 +52,9 @@ def delete(session_id):
     _path(session_id).unlink(missing_ok=True)
 
 
-def verify(session_id, customer_id, method="mock"):
-    """MOCK verification. A real system would check a one-time code or a login token first.
-    The point here is WHERE the result lives (code-owned state), not how identity is proven."""
+def verify(session_id, customer_id, method="test_shortcut"):
+    """TEST SHORTCUT: mark a session verified without the code flow. Used by offline tests only.
+    The real path is tools.send_verification_code + tools.verify_identity (a one-time code)."""
     session = load(session_id)
     session.update(verified_customer_id=customer_id, verified_at=_now(), verification_method=method)
     save(session)

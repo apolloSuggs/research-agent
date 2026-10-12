@@ -21,6 +21,7 @@ Only write and write_with_gaps let the writer start (enforced by gate_hook).
 """
 
 import json
+import re
 
 SOURCES = {"account_investigator": "account data", "policy_researcher": "policy data"}
 REQUIRED_GROUNDING = {
@@ -56,10 +57,12 @@ def _grounded(result):
 
 
 class ReportLedger:
-    def __init__(self):
+    def __init__(self, inquiry=None):
         self.calls = {}       # agent_id -> [{"tool", "input", "result"}]
         self.reports = []     # finished reports, in order
         self.briefings = {}   # specialist name -> how many times it was started
+        self.inquiry = inquiry or {}   # question, verified customer ID, stated reason (set by code)
+        self.writer_answer = None      # the report writer's text, captured by the report hook
         self._next_g = 1
 
     def record(self, agent_id, tool, tool_input, result):
@@ -158,5 +161,44 @@ class ReportLedger:
         return {"action": "write", "reason": "Both sources succeeded with grounding.", "coverage_notes": [], "rebrief": []}
 
     def grounding_index(self):
-        """grounding_id -> grounding, for checking citations later (Phase 4/5)."""
+        """grounding_id -> grounding, for checking citations."""
         return {f["grounding_id"]: f["grounding"] for r in self.reports for f in r["findings"] + r["partial_data"]}
+
+    def stated_reason(self):
+        """The reason the research actually used: the flag type the policy researcher looked up (from the
+        real tool input, not from a model's retelling)."""
+        used = [c["input"].get("flag_type") for calls in self.calls.values() for c in calls if c["tool"] == "get_policies"]
+        return used[-1] if used else None
+
+    def writer_packet(self):
+        """What report_writer reads, built by CODE. Latest report per source, without the specialists'
+        own words (summaries), so the writer sees structured facts only (a clean context)."""
+        reports = [{k: v for k, v in r.items() if k != "summary"} for r in self.latest().values()]
+        reason = self.inquiry.get("stated_reason") or self.stated_reason()
+        packet = {
+            "customer_question": self.inquiry.get("question"),
+            "verified_customer_id": self.inquiry.get("customer_id"),
+            "stated_reason": reason,
+            "customer_gave_reason": bool(reason) and reason != "unknown",
+            "decision": self.decision(),
+            "reports": reports,
+            "citable_grounding_ids": sorted({f["grounding_id"] for r in reports for f in r["findings"] + r["partial_data"]}),
+        }
+        return "RESEARCH PACKET (built by the system; your only source):\n" + json.dumps(packet, indent=2)
+
+    def check_citations(self, answer):
+        """Code check on the final answer (task 5.6): every [G#] must exist, every URL must come from the
+        research, and every grounded finding should be cited at least once."""
+        index = self.grounding_index()
+        latest_ids = {f["grounding_id"] for r in self.latest().values() for f in r["findings"] + r["partial_data"]}
+        cited = sorted(set(re.findall(r"\[(G\d+)\]", answer or "")), key=lambda g: int(g[1:]))
+        research_text = json.dumps(self.reports)
+        urls = {u.rstrip(".,;:)") for u in re.findall(r"https?://[^\s)\]>\"']+", answer or "")}
+        result = {
+            "cited": cited,
+            "unknown_ids": [g for g in cited if g not in index],
+            "unknown_urls": sorted(u for u in urls if u not in research_text),
+            "uncited": sorted(latest_ids - set(cited), key=lambda g: int(g[1:])),
+        }
+        result["ok"] = not result["unknown_ids"] and not result["unknown_urls"]
+        return result

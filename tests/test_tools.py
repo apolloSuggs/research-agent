@@ -4,6 +4,7 @@ Free: no server, no Claude. Scenario IDs (S1, E2...) match docs/TEST-SCENARIOS.m
 Run:  .venv/bin/python tests/test_tools.py
 """
 
+import json
 import sys
 from pathlib import Path
 
@@ -48,13 +49,15 @@ def policy(flag_type, faults=None, sleep=None):
 
 print("Tool definitions (tool-definitions skill, task 2.1)")
 names = [t["name"] for t in TOOLS]
-check(len(set(names)) == len(names) == 2, "two tools with unique names")
+check(len(set(names)) == len(names) == 4, "four tools with unique names")
 for t in TOOLS:
     d = t["description"]
     check("Do not use" in d and "Returns" in d and "Use when" in d, f"{t['name']}: description says when, when not, and what it returns")
     props = t["input_schema"]["properties"]
     check(all(p.get("type") and p.get("description") for p in props.values()), f"{t['name']}: every parameter has a type and a description")
-check("get_policies" in TOOLS[0]["description"] and "get_account_details" in TOOLS[1]["description"], "each description names its sibling tool")
+pairs = [("send_verification_code", "verify_identity"), ("get_account_details", "get_policies")]
+by_name = {t["name"]: t["description"] for t in TOOLS}
+check(all(b in by_name[a] and a in by_name[b] for a, b in pairs), "each look-alike pair names the other in its description")
 
 print("\nGrounding: every record in the data has source fields (a missing one is a tool bug)")
 for cid in ACCOUNTS:
@@ -134,6 +137,33 @@ try:
 except ToolError as e:
     check(e.attempts == 1, "with_retry never retries a non-transient error")
 check(set(CATEGORIES) == {"transient", "validation", "business", "permission", "internal"}, "error categories match the standard (no 'not_found')")
+
+print("\nVerification: the code flow (V1-V5)")
+s = session_store.new_session("v")
+r, err = run_tool("send_verification_code", {"email": "Maya.Patel@example.com"}, s)
+code = s["pending_verification"]["code"]
+check(not err and code not in json.dumps(r), "V1 code sent; the code is NOT in the result (Claude never sees it)")
+check(s["outbox"][-1]["to"] == "maya.patel@example.com" and code in s["outbox"][-1]["text"], "V1 the code lands in the simulated inbox")
+r2, _ = run_tool("send_verification_code", {"email": "nobody@example.com"}, session_store.new_session("v2"))
+check(r2 == r, "V2 unknown email gets the SAME reply (no way to probe who has an account)")
+r, err = run_tool("verify_identity", {"email": "maya.patel@example.com", "code": "000000"}, s)
+check(err and r["errorCategory"] == "validation" and "2 attempt(s) left" in r["message"], "V3 wrong code: validation error, attempts counted")
+r, err = run_tool("verify_identity", {"email": "priya.raman@example.com", "code": code}, s)
+check(err and "not the email" in r["message"], "V3 right code, wrong email: refused")
+r, err = run_tool("get_account_details", {"customer_id": "CUST-1001"}, s)
+check(err and r["errorCategory"] == "permission", "V4 before verifying: account read denied")
+r, err = run_tool("verify_identity", {"email": "maya.patel@example.com", "code": code}, s)
+check(not err and r["verified"] and r["customer_id"] == "CUST-1001" and s["verified_customer_id"] == "CUST-1001", "V4 right code: verified, recorded by code in the session")
+check(s["pending_verification"] is None and s["verification_method"] == "email_code", "V4 the used code is cleared")
+r, err = run_tool("get_account_details", {"customer_id": "CUST-1001"}, s)
+check(not err and "email" not in r["account"], "V4 after verifying: account read works (email not included in findings)")
+s = session_store.new_session("v5")
+run_tool("send_verification_code", {"email": "maya.patel@example.com"}, s)
+for _ in range(3):
+    r, err = run_tool("verify_identity", {"email": "maya.patel@example.com", "code": "999999"}, s)
+check(err and r["errorCategory"] == "business" and "locked" in r["message"], "V5 third wrong code locks verification (business error)")
+r, err = run_tool("verify_identity", {"email": "maya.patel@example.com", "code": s["pending_verification"]["code"]}, s)
+check(err and "locked" in r["message"] and not s["verified_customer_id"], "V5 even the right code fails once locked")
 
 print("\nSession store: verified identity and multiple inquiries (M1, M2)")
 sid = "test-tools-session"

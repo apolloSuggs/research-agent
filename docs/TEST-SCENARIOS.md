@@ -19,14 +19,28 @@ Customers live in `mock_data.py`. Verification is a mock in `session_store.py` (
 
 Policies: `payment_dispute` (v3.2), `fraud_suspicion` (v2.1), `account_security` (v1.4). No policy for `terms_violation`.
 
+## How to run a scenario yourself
+Open the Research Console (`.venv/bin/python console.py`, http://127.0.0.1:8001) and chat as the customer. Nothing is preset: give the test customer's email when asked, read the code from the simulated inbox, type it back, say what reason you were given, and ask your question. Outage switches set the faults for the next message.
+
+## V: Verification (front door)
+| ID | Scenario | Expected | Status |
+|---|---|---|---|
+| V1 | Give a test customer's email | Code sent to the simulated inbox; the code never appears in a tool result | ✅ offline + live |
+| V2 | Give an unknown email | Same reply as a real one (no probing who has an account); no code arrives | ✅ offline |
+| V3 | Wrong code / wrong email | Validation error, attempts counted | ✅ offline |
+| V4 | Right code | Session verified by code; account reads now allowed | ✅ offline + live |
+| V5 | Three wrong codes | Locked (business error); even the right code fails after | ✅ offline |
+| V6 | Research before verifying | Gate hook denies both specialists | ✅ offline |
+| V7 | "Hello" | Greeting only, no tools | ✅ live |
+
 ## S: Success and mismatch
 | ID | Scenario | Input (customer, stated reason) | Expected | Offline | Live |
 |---|---|---|---|---|---|
-| S1 | Restricted, both succeed | 1001, payment_dispute | Answer cites the policy URL and version, the chargeback on ORD-55120, each restricted feature with its date | ✅ data + grounding | ⏳ P5 |
+| S1 | Restricted, both succeed | 1001, payment_dispute | Answer cites the policy URL and version, the chargeback on ORD-55120, each restricted feature with its date | ✅ data + grounding | ✅ P4 (citations ok, all findings cited) |
 | S2 | Course mismatch | 1002, payment_dispute | Says the account is active with no flag; does not describe a dispute that is not there | ✅ | ⏳ P5 |
-| S3 | Reason mismatch | 1003, payment_dispute | States both: customer said payment dispute, account shows fraud suspicion; cites both sources | ✅ | ⏳ P5 |
+| S3 | Reason mismatch | 1003, payment_dispute | States both: customer said payment dispute, account shows fraud suspicion; cites both sources | ✅ | ✅ P4 (mismatch named, fraud policy gap stated) |
 | S4 | Security hold | 1004, account_security | Three features with dates, security policy v1.4 | ✅ | ⏳ P5 |
-| S5 | Policy gap | 1005, terms_violation | Account facts given; says no policy is on file; no invented rights | ✅ | ⏳ P5 |
+| S5 | Policy gap | 1005, terms_violation | Account facts given; says no policy is on file; no invented rights; does NOT say "try again" | ✅ | ✅ P4 (after a prompt fix) |
 | S6 | Closed account | 1006, payment_dispute | Says the account is closed, lists past flags with dates | ✅ | ⏳ P5 |
 
 ## E: Errors (contain, then report)
@@ -36,7 +50,7 @@ Policies: `payment_dispute` (v3.2), `fraud_suspicion` (v2.1), `account_security`
 | E2 | Malformed input | ID `12345` | `validation`, not retryable, 1 attempt, no retries wasted | ✅ | |
 | E3 | Nobody verified | no session | `permission`, account never read | ✅ | |
 | E4 | Wrong customer in briefing | verified 1001, asks 1003 | `permission`; no data from 1003 leaks | ✅ | ⏳ P2 |
-| E5 | Account service down | `FAULT_INJECT=account:timeout` | 3 attempts, backoff 0.2s then 0.4s, `transient` + retryable; decision `rebrief` (once), then `write_with_gaps`; policy still arrives; answer states the gap | ✅ | ✅ P3 (re-briefed once, gap stated, [G1] cited) · ⏳ P5 writer |
+| E5 | Account service down | `FAULT_INJECT=account:timeout` | 3 attempts, backoff 0.2s then 0.4s, `transient` + retryable; decision `rebrief` (once), then `write_with_gaps`; policy still arrives; answer states the gap | ✅ | ✅ P3 + P4 (writer states the gap, cites only [G1]) |
 | E6 | Brief blip | `account:blip` | Retry absorbs it: success with `recovered_after: 1`; coordinator never sees an error | ✅ (+ ledger) | ⏳ P5 |
 | E7 | Policy service down | `policy:timeout` | Account facts still given; answer says the policy could not be reached | ✅ | ⏳ P5 |
 | E8 | Both down | `account:timeout,policy:timeout` | Decision `rebrief` both in ONE reply, then `stop`; plain message; `report_writer` blocked by the gate hook | ✅ tools + gate | ✅ P3 (4 reports, stop, no writer) |
@@ -47,14 +61,14 @@ Policies: `payment_dispute` (v3.2), `fraud_suspicion` (v2.1), `account_security`
 | R1 | Parallel start | Both specialists started in the SAME coordinator reply | ✅ P2 live (same `message_id`, 3 of 3 runs) |
 | R2 | Tool scope | Each specialist can call only its own tool; a cross call is denied by the scope hook | ✅ P2 offline (`tests/test_hooks.py`); live: 0 denials, no cross calls |
 | R3 | Full briefing | Each briefing contains the customer ID / stated reason and the return format | ✅ P2 live |
-| R4 | Writer only after research | `report_writer` gets structured reports, never raw chat | ⏳ P4 |
+| R4 | Writer only after research | `report_writer` gets the code-built packet (briefing replaced by `updatedInput`), never raw chat or specialists' words; no tools | ✅ P4 offline + live |
 
 ## G: Grounding
 | ID | Scenario | Expected | When |
 |---|---|---|---|
 | G1 | Every record has source fields | record_id, last_updated, retrieved_at; policies also URL, version, name | ✅ |
 | G2 | Ledger assigns `grounding_id`; ungrounded data is left out (failed or partial + coverage note) | ✅ P3 (`tests/test_ledger.py`) |
-| G3 | Every claim in the answer maps to a `grounding_id`; URLs quoted from it | ⏳ P4/P5 |
+| G3 | Every claim in the answer maps to a `grounding_id`; URLs quoted from it | ✅ P4 `check_citations`: unknown IDs/URLs caught offline; 5 live answers ok=True |
 
 ## M: Multi-inquiry and session state
 | ID | Scenario | Expected | When |
@@ -71,6 +85,7 @@ Policies: `payment_dispute` (v3.2), `fraud_suspicion` (v2.1), `account_security`
 ## Live runs so far
 - 10-11-2026, Phase 2 (research summary only, no writer yet): S1 ✅, S3 ✅ (mismatch and missing fraud policy named), E5 ✅ (structured transient error, 3 attempts, policy still arrived, gap stated). About $0.02 each.
 - 10-11-2026, Phase 3 (ledger + decision table + gate): E5 ✅ (rebrief once, then write_with_gaps, [G1] cited), E8 ✅ (rebrief both in one reply, then stop, no writer). $0.03 each.
+- 10-12-2026, Phase 4 (report writer): S1, S3, S5, E5 ✅, citation check ok on all. S5 first said "try again" for a found=false policy; fixed in the writer prompt (rule 4). About $0.05 each.
 
 ## How to run
 ```
@@ -78,5 +93,7 @@ Policies: `payment_dispute` (v3.2), `fraud_suspicion` (v2.1), `account_security`
 .venv/bin/python tests/test_mcp_server.py   # same rules through the real MCP server, across processes
 .venv/bin/python tests/test_hooks.py        # scope hook, parallel-start check
 .venv/bin/python tests/test_ledger.py       # reports, grounding IDs, coverage notes, decision table, gate
+.venv/bin/python tests/test_writer.py       # writer packet, briefing swap, citation check
+.venv/bin/python tests/run_all.py           # ALL offline suites, one line each (-v for every check)
 .venv/bin/python main.py --customer CUST-1001 --reason payment_dispute "Why was my account flagged?"   # live, costs credit
 ```

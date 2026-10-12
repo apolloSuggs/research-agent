@@ -4,7 +4,8 @@ In production this would be an accounts service and a policy service. Here it is
 Every record carries the fields grounding needs (record ID, last-updated date, and for policies the
 source URL and version), so code can attach provenance to each finding. The model never types them.
 
-Each customer is here to drive at least one scenario in docs/TEST-SCENARIOS.md.
+Each customer is here to drive at least one scenario in docs/TEST-SCENARIOS.md. In the console you
+"become" one by giving their email; a verification code then lands in the simulated inbox.
 Dates are MM-DD-YYYY. URLs use example.com, a domain reserved for examples.
 """
 
@@ -13,6 +14,7 @@ ACCOUNTS = {
     "CUST-1001": {
         "record_id": "ACC-1001",
         "name": "Maya Patel",
+        "email": "maya.patel@example.com",
         "status": "restricted",
         "flag": {
             "type": "payment_dispute",
@@ -30,6 +32,7 @@ ACCOUNTS = {
     "CUST-1002": {
         "record_id": "ACC-1002",
         "name": "Daniel Brooks",
+        "email": "daniel.brooks@example.com",
         "status": "active",
         "flag": None,
         "restricted_features": [],
@@ -40,6 +43,7 @@ ACCOUNTS = {
     "CUST-1003": {
         "record_id": "ACC-1003",
         "name": "Priya Raman",
+        "email": "priya.raman@example.com",
         "status": "restricted",
         "flag": {
             "type": "fraud_suspicion",
@@ -59,6 +63,7 @@ ACCOUNTS = {
     "CUST-1004": {
         "record_id": "ACC-1004",
         "name": "Tomas Silva",
+        "email": "tomas.silva@example.com",
         "status": "restricted",
         "flag": {
             "type": "account_security",
@@ -77,6 +82,7 @@ ACCOUNTS = {
     "CUST-1005": {
         "record_id": "ACC-1005",
         "name": "Grace Kim",
+        "email": "grace.kim@example.com",
         "status": "restricted",
         "flag": {
             "type": "terms_violation",
@@ -93,6 +99,7 @@ ACCOUNTS = {
     "CUST-1006": {
         "record_id": "ACC-1006",
         "name": "Leo Novak",
+        "email": "leo.novak@example.com",
         "status": "closed",
         "flag": None,
         "restricted_features": [],
