@@ -1,4 +1,4 @@
-"""ledger.py: reports built by CODE from real tool results (exam tasks 1.5, 5.3, 5.6).
+"""ledger.py: reports built by CODE from real tool results.
 
 Why: if a model copies a URL, a version or an error into a report, it can drop or change it.
 Here a hook records every real tool result (the ledger), and code builds each specialist's report
@@ -187,7 +187,7 @@ class ReportLedger:
         return "RESEARCH PACKET (built by the system; your only source):\n" + json.dumps(packet, indent=2)
 
     def check_citations(self, answer):
-        """Code check on the final answer (task 5.6): every [G#] must exist, every URL must come from the
+        """Code check on the final answer: every [G#] must exist, every URL must come from the
         research, and every grounded finding should be cited at least once."""
         index = self.grounding_index()
         latest_ids = {f["grounding_id"] for r in self.latest().values() for f in r["findings"] + r["partial_data"]}

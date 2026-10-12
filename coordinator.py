@@ -1,4 +1,4 @@
-"""coordinator.py: the hub (exam tasks 1.2, 1.3), as a real multi-turn conversation.
+"""coordinator.py: the hub, as a real multi-turn conversation.
 
 The coordinator is the front door: it chats with the customer, verifies them with a one-time code
 (front-door tools), works out their question and stated reason, and only then starts the specialists.

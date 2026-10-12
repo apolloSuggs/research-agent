@@ -1,4 +1,4 @@
-"""errors.py: the error standard every tool follows (exam task 2.2), plus the bounded retry (task 5.3).
+"""errors.py: the error standard every tool follows, plus the bounded retry.
 
 Rule: contain, then report. A tool never lets a raw exception escape. It returns ONE structured error:
     errorCategory  what kind of failure (see CATEGORIES)

@@ -4,11 +4,13 @@ A three-agent research system built as the Stage 3 capstone for the Dev Compass 
 
 Built on the **Claude Agent SDK** throughout (subagents, hooks, an MCP server). Everything runs on fake data (`mock_data.py`).
 
-![Research Console: Maya is verified by an emailed code; both specialists start in the same reply, the code builds their reports with grounding IDs, and the decision lets the report writer start](docs/console.png)
+![Research Console demo: the architecture, then a live run. Maya is verified by an emailed code; both specialists start in the same reply; tool results, code-built reports, the decision and the citation check are shown as JSON; the writer's answer cites each fact](docs/demo.gif)
 
-*The Research Console, mid-run: the "behind the scenes" lines show what the customer never sees. Both specialists start in the same reply. The policy service blipped once and the retry absorbed it. Each report is built by code with grounding IDs (G1, G2), and the decision lets the report writer start. The right panel shows the verification code in a simulated inbox and the last run's checks. The written answer appears below, with clickable sources.*
+*The demo opens on the architecture, then runs one live conversation with "Show JSON" on. Maya asks for help and is verified by a code sent to the simulated inbox. Then come her question and the parallel start, each tool result as JSON, the reports built by code with grounding IDs, the decision, and the writer's cited answer. The run ends on the citation check and the source behind [G1]. [Full-size screenshot](docs/console.png).*
 
 ## Architecture: hub and spoke
+
+![Architecture: coordinator hub, two parallel specialists and a report writer; a code gate of hooks and a ledger beside the hub; an MCP server with the tools, the verification check and the session store](docs/architecture.svg)
 
 ```
 customer ──> COORDINATOR (hub)  front door: chats, verifies by emailed code, works out the question
@@ -42,7 +44,7 @@ Specialists never talk to each other. Each starts blank and sees only its briefi
 | Citation check: every `[G#]` and URL in the final answer must exist in the research | `ledger.py` (`check_citations`) |
 | Multi-turn conversation with follow-ups in the same verified session | `coordinator.py` (`Conversation`) |
 | Fault injection without code changes (`FAULT_INJECT=account:timeout`) | `tools.py`, `mcp_server.py` |
-| Research Console: live chat with a behind-the-scenes stream, light and dark | `console.py`, `console.html` |
+| Research Console: live chat with a behind-the-scenes stream, a Show JSON switch for every tool result, report, decision and citation check, light and dark | `console.py`, `console.html` |
 
 ## Setup
 ```bash

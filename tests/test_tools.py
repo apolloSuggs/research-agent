@@ -47,7 +47,7 @@ def policy(flag_type, faults=None, sleep=None):
     return run_tool("get_policies", {"flag_type": flag_type}, None, faults, {"sleep": sleep or FakeSleep()})
 
 
-print("Tool definitions (tool-definitions skill, task 2.1)")
+print("Tool definitions (tool-definitions skill)")
 names = [t["name"] for t in TOOLS]
 check(len(set(names)) == len(names) == 4, "four tools with unique names")
 for t in TOOLS:

@@ -1,4 +1,4 @@
-"""agents.py: who the agents are (exam tasks 1.2, 1.3, 2.3).
+"""agents.py: who the agents are.
 
 A subagent in the Agent SDK is an AgentDefinition: a description (when the coordinator should use it),
 a prompt (how it behaves) and a tool list (what it may touch). The coordinator starts one with the

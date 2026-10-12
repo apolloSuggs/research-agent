@@ -1,4 +1,4 @@
-"""tools.py: the front-door tools (verification) and the two data tools (exam tasks 2.1, 2.2), and the code that runs them.
+"""tools.py: the front-door tools (verification) and the two data tools, and the code that runs them.
 
 Front door (coordinator only): send_verification_code, verify_identity. The code lives in the session.
 Data (specialists only): get_account_details (verified customer only), get_policies.

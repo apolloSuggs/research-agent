@@ -1,4 +1,4 @@
-"""mcp_server.py: the front-door and data tools behind one MCP server (exam tasks 2.1, 2.2, 2.4).
+"""mcp_server.py: the front-door and data tools behind one MCP server.
 
 MCP (Model Context Protocol) is a standard way to offer tools to an agent from a separate program.
 The Agent SDK starts this file as a child process and talks to it over stdio (its standard input and

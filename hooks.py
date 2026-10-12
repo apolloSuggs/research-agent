@@ -1,4 +1,4 @@
-"""hooks.py: rules the SDK runs in code around every tool call (exam tasks 1.5, 2.3).
+"""hooks.py: rules the SDK runs in code around every tool call.
 
 A hook is a function the SDK calls before (PreToolUse) or after (PostToolUse) a tool runs. It can
 allow, deny with a reason the model sees, or add context. A rule in a hook cannot be forgotten the

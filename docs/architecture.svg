@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" width="1200" height="800" font-family="Lato, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" role="img" aria-label="Hub and spoke architecture: a coordinator verifies the customer and starts two specialists in parallel; a code gate of hooks and a ledger builds reports, decides, and hands a research packet to the report writer; an MCP server holds the tools, the verification code and the verified-customer check.">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#3b4663"/></marker>
+    <marker id="arv" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#6a3fb5"/></marker>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#4671f6" stroke-opacity="0.07"/></pattern>
+  </defs>
+  <style>
+    .t { font-size: 15px; font-weight: 700; fill: #0f1830; }
+    .s { font-size: 12.5px; fill: #3b4663; }
+    .m { font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size: 11.5px; fill: #2f55d4; }
+    .lab { font-size: 11.5px; fill: #56627f; font-style: italic; }
+    .cap { font-family: 'Geist Mono', ui-monospace, Menlo, monospace; font-size: 10.5px; letter-spacing: 1.2px; fill: #56627f; }
+  </style>
+  <rect width="1200" height="800" fill="#eef2fc"/>
+  <rect width="1200" height="800" fill="url(#grid)"/>
+
+  <text x="40" y="48" style="font-size:24px;font-weight:900;fill:#0f1830">Account Research Agent</text>
+  <text x="40" y="74" class="s">Hub and spoke on the Claude Agent SDK · rules that must always hold live in code, not prompts</text>
+
+  <!-- customer -->
+  <rect x="40" y="290" width="150" height="76" rx="14" fill="#fff" stroke="#3b4663" stroke-width="1.4"/>
+  <text x="115" y="322" text-anchor="middle" class="t">Customer</text>
+  <text x="115" y="342" text-anchor="middle" class="s">chats in the console</text>
+
+  <!-- coordinator -->
+  <rect x="250" y="230" width="320" height="190" rx="16" fill="#dfe7fe" stroke="#4671f6" stroke-width="2"/>
+  <text x="270" y="262" class="cap">HUB · CLAUDE SONNET 5.5</text>
+  <text x="270" y="288" class="t">Coordinator (front door)</text>
+  <text x="270" y="312" class="s">chats, verifies by emailed code,</text>
+  <text x="270" y="330" class="s">works out the question and stated reason</text>
+  <text x="270" y="358" class="m">Agent</text>
+  <text x="270" y="376" class="m">send_verification_code · verify_identity</text>
+  <text x="270" y="402" class="s">multi-turn: same session every message</text>
+
+  <line x1="190" y1="315" x2="248" y2="315" stroke="#3b4663" stroke-width="1.5" marker-end="url(#ar)"/>
+  <line x1="248" y1="345" x2="192" y2="345" stroke="#3b4663" stroke-width="1.5" marker-end="url(#ar)"/>
+  <text x="219" y="390" text-anchor="middle" class="lab">cited</text>
+  <text x="219" y="404" text-anchor="middle" class="lab">answer</text>
+
+  <!-- specialists -->
+  <rect x="650" y="110" width="270" height="86" rx="14" fill="#d9f1ec" stroke="#0f7a6b" stroke-width="1.8"/>
+  <text x="668" y="138" class="cap">SPOKE · HAIKU 5.5</text>
+  <text x="668" y="160" class="t">account_investigator</text>
+  <text x="668" y="180" class="m">get_account_details</text>
+  <rect x="650" y="226" width="270" height="86" rx="14" fill="#d9f1ec" stroke="#0f7a6b" stroke-width="1.8"/>
+  <text x="668" y="254" class="cap">SPOKE · HAIKU 5.5</text>
+  <text x="668" y="276" class="t">policy_researcher</text>
+  <text x="668" y="296" class="m">get_policies</text>
+  <path d="M570 270 C610 260 620 160 648 155" fill="none" stroke="#3b4663" stroke-width="1.5" marker-end="url(#ar)"/>
+  <path d="M570 285 C610 285 620 270 648 269" fill="none" stroke="#3b4663" stroke-width="1.5" marker-end="url(#ar)"/>
+  <text x="410" y="200" class="lab">full briefing to each; both started in</text>
+  <text x="410" y="214" class="lab">the SAME reply, so they run in parallel</text>
+
+  <!-- writer -->
+  <rect x="650" y="470" width="270" height="96" rx="14" fill="#d9f1ec" stroke="#0f7a6b" stroke-width="1.8"/>
+  <text x="668" y="498" class="cap">SPOKE · SONNET 5.5 · NO TOOLS</text>
+  <text x="668" y="520" class="t">report_writer</text>
+  <text x="668" y="540" class="s">reads only the research packet;</text>
+  <text x="668" y="557" class="s">every fact cites a [G#]</text>
+  <path d="M648 520 C610 520 600 420 572 410" fill="none" stroke="#3b4663" stroke-width="1.5" marker-end="url(#ar)"/>
+  <text x="588" y="470" class="lab">answer</text>
+
+  <!-- MCP server -->
+  <rect x="970" y="110" width="200" height="222" rx="14" fill="#fff" stroke="#3b4663" stroke-width="1.4"/>
+  <text x="986" y="138" class="cap">MCP SERVER · STDIO</text>
+  <text x="986" y="164" class="m">send_verification_code</text>
+  <text x="986" y="182" class="m">verify_identity</text>
+  <text x="986" y="200" class="m">get_account_details</text>
+  <text x="986" y="218" class="m">get_policies</text>
+  <text x="986" y="246" class="s">structured errors</text>
+  <text x="986" y="264" class="s">retry 2x, transient only</text>
+  <text x="986" y="282" class="s">grounding on every result</text>
+  <text x="986" y="300" class="s">verified-customer check</text>
+  <text x="986" y="318" class="s">fault switch (testing)</text>
+  <line x1="920" y1="153" x2="968" y2="153" stroke="#3b4663" stroke-width="1.5" marker-end="url(#ar)"/>
+  <line x1="920" y1="269" x2="968" y2="269" stroke="#3b4663" stroke-width="1.5" marker-end="url(#ar)"/>
+
+  <rect x="970" y="350" width="160" height="56" rx="12" fill="#fff" stroke="#3b4663" stroke-width="1.2" stroke-dasharray="4 3"/>
+  <text x="986" y="374" class="s">mock data:</text>
+  <text x="986" y="392" class="s">6 customers, 3 policies</text>
+  <line x1="1040" y1="332" x2="1040" y2="348" stroke="#3b4663" stroke-width="1.5" marker-end="url(#ar)"/>
+
+  <rect x="970" y="430" width="200" height="136" rx="14" fill="#ebe3f8" stroke="#6a3fb5" stroke-width="1.6"/>
+  <text x="986" y="458" class="cap">SESSION STORE (CODE)</text>
+  <text x="986" y="482" class="s">verified customer + time</text>
+  <text x="986" y="500" class="s">verification code (never</text>
+  <text x="986" y="516" class="s">in any tool result)</text>
+  <text x="986" y="536" class="s">inbox · questions · reports</text>
+  <line x1="1152" y1="334" x2="1152" y2="428" stroke="#6a3fb5" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#arv)" marker-start="url(#arv)"/>
+
+  <!-- code gate -->
+  <rect x="250" y="470" width="360" height="290" rx="16" fill="#ebe3f8" stroke="#6a3fb5" stroke-width="2"/>
+  <text x="270" y="500" class="cap">CODE GATE · BESIDE THE HUB</text>
+  <text x="270" y="524" class="t">Hooks + ledger</text>
+  <text x="270" y="552" class="m">scope_hook</text><text x="370" y="552" class="s">each agent: own tools only</text>
+  <text x="270" y="576" class="m">record_hook</text><text x="370" y="576" class="s">files every REAL tool result</text>
+  <text x="270" y="600" class="m">report_hook</text><text x="370" y="600" class="s">builds report + decision</text>
+  <text x="270" y="624" class="m">gate_hook</text><text x="370" y="624" class="s">no research until the session</text>
+  <text x="370" y="641" class="s">is verified; writer only if allowed;</text>
+  <text x="370" y="658" class="s">1 re-brief; swaps writer briefing</text>
+  <text x="270" y="688" class="m">ledger</text><text x="370" y="688" class="s">G# grounding, coverage notes,</text>
+  <text x="370" y="705" class="s">decision: rebrief / write /</text>
+  <text x="370" y="722" class="s">write_with_gaps / stop</text>
+  <text x="370" y="744" class="s">+ citation check on the answer</text>
+  <path d="M430 468 L430 422" fill="none" stroke="#6a3fb5" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#arv)"/>
+  <text x="438" y="452" class="lab" style="fill:#6a3fb5">reports + decision into context</text>
+  <path d="M612 600 C630 600 630 545 648 545" fill="none" stroke="#6a3fb5" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#arv)"/>
+  <text x="620" y="625" class="lab" style="fill:#6a3fb5">research packet</text>
+
+  <text x="660" y="760" class="s">Contain, then report: a failure is retried in code, then becomes a structured report</text>
+  <text x="660" y="778" class="s">with a coverage note. The coordinator never gets a raw exception, or silence.</text>
+</svg>
